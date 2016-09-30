@@ -4,30 +4,25 @@ import "fmt"
 
 const PROVIDER_CONSOLE = "console"
 
-type consoleProvider struct {
+type ConsoleProvider struct {
 }
 
-func (p consoleProvider) GetID() string {
+func (p ConsoleProvider) GetID() string {
 	return PROVIDER_CONSOLE
 }
 
-func (p consoleProvider) Log(msg []byte) {
-
-	fmt.Println(string(msg))
-
-}
-
-func (p consoleProvider) Error(msg []byte) {
-
+func (p ConsoleProvider) Log(msg []byte) {
 	fmt.Println(string(msg))
 }
 
-func (p consoleProvider) Fatal(msg []byte) {
-
+func (p ConsoleProvider) Error(msg []byte) {
 	fmt.Println(string(msg))
 }
 
-func (p consoleProvider) Debug(msg []byte) {
+func (p ConsoleProvider) Fatal(msg []byte) {
+	fmt.Println(string(msg))
+}
 
+func (p ConsoleProvider) Debug(msg []byte) {
 	fmt.Println(string(msg))
 }

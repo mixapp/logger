@@ -7,26 +7,26 @@ import (
 
 const PROVIDER_EMAIL = "email"
 
-type emailProvider struct {
+type EmailProvider struct {
 }
 
-func (p emailProvider) GetID() string {
+func (p EmailProvider) GetID() string {
 	return PROVIDER_EMAIL
 }
 
-func (p emailProvider) Log(msg []byte) {
+func (p EmailProvider) Log(msg []byte) {
 	send("Log message", msg)
 }
 
-func (p emailProvider) Error(msg []byte) {
+func (p EmailProvider) Error(msg []byte) {
 	send("Error message", msg)
 }
 
-func (p emailProvider) Fatal(msg []byte) {
+func (p EmailProvider) Fatal(msg []byte) {
 	send("Fatal message", msg)
 }
 
-func (p emailProvider) Debug(msg []byte) {
+func (p EmailProvider) Debug(msg []byte) {
 	send("Debug message", msg)
 }
 

@@ -9,8 +9,6 @@ import (
 	"time"
 )
 
-var LOGGER *Logger
-
 const (
 	LEVEL_ERROR int = iota
 	LEVEL_INFO
@@ -25,21 +23,6 @@ type ProviderInterface interface {
 	Debug(msg []byte)
 }
 
-func init() {
-	LOGGER = NewLogger()
-
-	cp := consoleProvider{}
-	ep := emailProvider{}
-
-	LOGGER.RegisterProvider(cp)
-	LOGGER.RegisterProvider(ep)
-
-	LOGGER.AddLogProvider(PROVIDER_CONSOLE)
-	LOGGER.AddErrorProvider(PROVIDER_CONSOLE, PROVIDER_EMAIL)
-	LOGGER.AddFatalProvider(PROVIDER_CONSOLE, PROVIDER_EMAIL)
-	LOGGER.AddDebugProvider(PROVIDER_CONSOLE)
-}
-
 type Logger struct {
 	providers      map[string]*ProviderInterface
 	logProviders   []string
@@ -50,93 +33,8 @@ type Logger struct {
 }
 
 func NewLogger() *Logger {
-	newLogger := Logger{
+	return &Logger{
 		providers: make(map[string]*ProviderInterface, 0),
-	}
-
-	return &newLogger
-}
-
-func (l *Logger) RegisterProvider(p ProviderInterface) {
-	l.providers[p.GetID()] = &p
-}
-
-func (l *Logger) AddLogProvider(provIDs ...string) {
-
-	for _, provID := range provIDs {
-		p, bFound := l.providers[provID]
-
-		if bFound {
-			pID := (*p).GetID()
-
-			for _, val := range l.logProviders {
-				if val == pID {
-					return
-				}
-			}
-
-			l.logProviders = append(l.logProviders, pID)
-		}
-	}
-}
-
-func (l *Logger) AddErrorProvider(provIDs ...string) {
-
-	for _, provID := range provIDs {
-
-		p, bFound := l.providers[provID]
-
-		if bFound {
-			pID := (*p).GetID()
-
-			for _, val := range l.errorProviders {
-				if val == pID {
-					return
-				}
-			}
-
-			l.errorProviders = append(l.errorProviders, pID)
-		}
-	}
-}
-
-func (l *Logger) AddFatalProvider(provIDs ...string) {
-
-	for _, provID := range provIDs {
-
-		p, bFound := l.providers[provID]
-
-		if bFound {
-			pID := (*p).GetID()
-
-			for _, val := range l.fatalProviders {
-				if val == pID {
-					return
-				}
-			}
-
-			l.fatalProviders = append(l.fatalProviders, pID)
-		}
-	}
-}
-
-func (l *Logger) AddDebugProvider(provIDs ...string) {
-
-	for _, provID := range provIDs {
-
-		p, bFound := l.providers[provID]
-
-		if bFound {
-			pID := (*p).GetID()
-
-			for _, val := range l.debugProviders {
-				if val == pID {
-					return
-				}
-			}
-
-			l.debugProviders = append(l.debugProviders, pID)
-		}
 	}
 }
 
@@ -144,40 +42,68 @@ func (l *Logger) SetLevel(level int) {
 	l.level = level
 }
 
-var (
-	HOST              string
-	MESSAGE_REPLACER  = strings.NewReplacer("\r", "", "\n", "\t")
-	MESSAGE_SEPARATOR = []byte("\t")
-)
+func (l *Logger) RegisterProvider(p ProviderInterface) {
+	l.providers[p.GetID()] = &p
+}
 
-func (l *Logger) makeMessage(typeLog string, err []interface{}) *bytes.Buffer {
+func (l *Logger) AddLogProvider(provIDs ...string) {
+	l.addProvider("log", provIDs...)
+}
 
-	if len(HOST) == 0 {
-		HOST, _ = os.Hostname()
+func (l *Logger) AddErrorProvider(provIDs ...string) {
+	l.addProvider("error", provIDs...)
+}
+
+func (l *Logger) AddFatalProvider(provIDs ...string) {
+	l.addProvider("fatal", provIDs...)
+}
+
+func (l *Logger) AddDebugProvider(provIDs ...string) {
+	l.addProvider("debug", provIDs...)
+}
+
+func (l *Logger) addProvider(providerType string, providersIDs ...string) {
+
+	var IDs *[]string
+	switch providerType {
+	case "debug":
+		IDs = &l.debugProviders
+	case "log":
+		IDs = &l.logProviders
+	case "error":
+		IDs = &l.errorProviders
+	case "fatal":
+		IDs = &l.fatalProviders
+	default:
+		panic("Wrong type of the provider.")
 	}
 
-	buf := bytes.NewBuffer(nil)
-	prefix := fmt.Sprintf("%s: %s %s ", typeLog, time.Now().Format(time.RFC3339), HOST)
-	logger := log.New(buf, prefix, log.Lshortfile)
-
-	msg := bytes.NewBuffer(nil)
-	for _, v := range err {
-		if msg.Len() > 0 {
-			msg.Write(MESSAGE_SEPARATOR)
+	alreadyRegistred := func(id string, idsList *[]string) bool {
+		for _, val := range *idsList {
+			if val == id {
+				return true
+			}
 		}
-		fmt.Fprintf(msg, "%v", v)
+		return false
 	}
 
-	logger.Output(3, MESSAGE_REPLACER.Replace(msg.String()))
+	for _, id := range providersIDs {
 
-	return buf
+		provider, bFound := l.providers[id]
+		if bFound {
+			pID := (*provider).GetID()
+			if !alreadyRegistred(pID, IDs) {
+				*IDs = append(*IDs, pID)
+			}
+		}
+	}
 }
 
 func (l *Logger) Log(err ...interface{}) {
 	if l.level < LEVEL_INFO {
 		return
 	}
-	msg := l.makeMessage("LOG", err).Bytes()
+	msg := makeMessage("LOG", err).Bytes()
 	for _, pID := range l.logProviders {
 		p, bFound := l.providers[pID]
 		if bFound {
@@ -188,7 +114,7 @@ func (l *Logger) Log(err ...interface{}) {
 
 func (l *Logger) Error(err ...interface{}) {
 
-	msg := l.makeMessage("ERROR", err).Bytes()
+	msg := makeMessage("ERROR", err).Bytes()
 	for _, pID := range l.errorProviders {
 		p, bFound := l.providers[pID]
 		if bFound {
@@ -201,7 +127,7 @@ func (l *Logger) Debug(err ...interface{}) {
 	if l.level < LEVEL_DEBUG {
 		return
 	}
-	msg := l.makeMessage("DEBUG", err).Bytes()
+	msg := makeMessage("DEBUG", err).Bytes()
 	for _, pID := range l.debugProviders {
 		p, bFound := l.providers[pID]
 		if bFound {
@@ -211,7 +137,7 @@ func (l *Logger) Debug(err ...interface{}) {
 }
 
 func (l *Logger) Fatal(err ...interface{}) {
-	msg := l.makeMessage("FATAL", err).Bytes()
+	msg := makeMessage("FATAL", err).Bytes()
 	for _, pID := range l.fatalProviders {
 		p, bFound := l.providers[pID]
 		if bFound {
@@ -220,4 +146,33 @@ func (l *Logger) Fatal(err ...interface{}) {
 	}
 
 	os.Exit(1)
+}
+
+var (
+	HOST              string
+	MESSAGE_REPLACER  = strings.NewReplacer("\r", "", "\n", "\t")
+	MESSAGE_SEPARATOR = []byte("\t")
+)
+
+func makeMessage(typeLog string, err []interface{}) *bytes.Buffer {
+
+	if len(HOST) == 0 {
+		HOST, _ = os.Hostname()
+	}
+
+	buf := bytes.NewBuffer(nil)
+	prefix := fmt.Sprintf("%s: %s %s ", typeLog, time.Now().Format(time.RFC3339), HOST)
+	logger := log.New(buf, prefix, log.Lshortfile)
+
+	msg := bytes.NewBuffer(nil)
+	for i, v := range err {
+		if i > 0 {
+			msg.Write(MESSAGE_SEPARATOR)
+		}
+		fmt.Fprint(msg, v)
+	}
+
+	logger.Output(3, MESSAGE_REPLACER.Replace(msg.String()))
+
+	return buf
 }
