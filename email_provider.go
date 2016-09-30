@@ -8,17 +8,21 @@ import (
 const PROVIDER_EMAIL = "email"
 
 type EmailProvider struct {
-	address string
+	address    string
+	smtpClient *mail.SmtpClient
 }
 
-func NewEmailProvider(address string) (*EmailProvider, error) {
+func NewEmailProvider(address string, smtpClient *mail.SmtpClient) (*EmailProvider, error) {
 
 	if len(address) == 0 {
 		return nil, errors.New("Empty email address.")
+	} else if smtpClient == nil {
+		return nil, errors.New("Empty smtp client.")
 	}
 
 	provider := &EmailProvider{
-		address: address,
+		address:    address,
+		smtpClient: smtpClient,
 	}
 
 	return provider, nil
@@ -45,8 +49,7 @@ func (p EmailProvider) Debug(msg []byte) {
 }
 
 func (p EmailProvider) send(subject string, body []byte) {
-
-	message := mail.NewMail(p.address, subject, string(body))
+	message := mail.NewMessage(p.smtpClient, p.address, subject, string(body))
 	message.BodyContentType = "text/plain"
 	message.SendMail()
 }
