@@ -32,8 +32,8 @@ func TestAddProvider(t *testing.T) {
 		t.Error("Failed registration of the provider 'fatal'.")
 	}
 
-	l.AddDebugProvider(providerDebug.GetID())
-	if len(l.debugProviders) != 1 || l.debugProviders[0] != providerDebug.GetID() {
+	l.AddDebugProvider(providerDebug.GetID(), providerDebug.GetID(), providerError.GetID())
+	if len(l.debugProviders) != 2 || l.debugProviders[0] != providerDebug.GetID() || l.debugProviders[1] != providerError.GetID() {
 		t.Error("Failed registration of the provider 'debug'.")
 	}
 }

@@ -25,7 +25,7 @@
 
         {
             "name": "Dependences",
-            "shell_cmd": "go get github.com/IntelliQru/config && go get github.com/IntelliQru/mail"
+            "shell_cmd": "go get github.com/IntelliQru/mail"
         },
      ]
 }
