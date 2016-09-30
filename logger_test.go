@@ -6,22 +6,49 @@ import (
 	"testing"
 )
 
-var (
-	expr = regexp.MustCompile(`: \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2} [^ ]+ [^:]+:\d+:`)
-)
+func TestAddProvider(t *testing.T) {
+
+	providerInfo := Provider{Level: LEVEL_INFO}
+	providerError := Provider{Level: LEVEL_ERROR}
+	providerDebug := Provider{Level: LEVEL_DEBUG}
+
+	l := NewLogger()
+	l.RegisterProvider(&providerInfo)
+	l.RegisterProvider(&providerError)
+	l.RegisterProvider(&providerDebug)
+
+	l.AddErrorProvider(providerError.GetID())
+	if len(l.errorProviders) != 1 || l.errorProviders[0] != providerError.GetID() {
+		t.Error("Failed registration of the provider 'error'.")
+	}
+
+	l.AddLogProvider(providerInfo.GetID(), providerInfo.GetID())
+	if len(l.logProviders) != 1 || l.logProviders[0] != providerInfo.GetID() {
+		t.Error("Failed registration of the provider 'log'.")
+	}
+
+	l.AddFatalProvider(providerInfo.GetID(), providerError.GetID())
+	if len(l.fatalProviders) != 2 || l.fatalProviders[0] != providerInfo.GetID() || l.fatalProviders[1] != providerError.GetID() {
+		t.Error("Failed registration of the provider 'fatal'.")
+	}
+
+	l.AddDebugProvider(providerDebug.GetID(), providerDebug.GetID(), providerError.GetID())
+	if len(l.debugProviders) != 2 || l.debugProviders[0] != providerDebug.GetID() || l.debugProviders[1] != providerError.GetID() {
+		t.Error("Failed registration of the provider 'debug'.")
+	}
+}
 
 func TestMessage(t *testing.T) {
 
 	// example:
 	// Err: 2016-09-29T14:32:49+03:00 MyHost testing.go:610: text1 text2 text3text4
 	// Info: 2016-09-29T14:32:49+03:00 MyHost testing.go:610: text1 text2 text3text4
+	expr := regexp.MustCompile(`: \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2} [^ ]+ [^:]+:\d+:`)
 
 	testData := []interface{}{"line1\nline2", "line3\r\nline4", "text1", "text2", 10}
 
-	l := NewLogger()
-
 	for _, prefix := range []string{"Err", "Info"} {
-		msg := string(l.makeMessage(prefix, testData).Bytes())
+		msg := string(makeMessage(prefix, testData).Bytes())
 		msg = expr.ReplaceAllString(msg, "")
 
 		etalon := prefix + " line1\tline2\tline3\tline4\ttext1\ttext2\t10\n"
@@ -39,7 +66,7 @@ func TestPringMessage(t *testing.T) {
 		}
 	}
 
-	for _, level := range []int{LEVEL_INFO, LEVEL_ERROR, LEVEL_DEBUG} {
+	for _, level := range []int{LEVEL_ERROR, LEVEL_INFO, LEVEL_DEBUG} {
 		provider := Provider{Level: level}
 
 		l := NewLogger()
