@@ -48,10 +48,10 @@ func TestMessage(t *testing.T) {
 	testData := []interface{}{"line1\nline2", "line3\r\nline4", "text1", "text2", 10}
 
 	for _, prefix := range []string{"Err", "Info"} {
-		msg := string(makeMessage(prefix, testData).Bytes())
+		msg := string(makeMessage(prefix, testData))
 		msg = expr.ReplaceAllString(msg, "")
 
-		etalon := prefix + " line1\tline2\tline3\tline4\ttext1\ttext2\t10\n"
+		etalon := prefix + " line1\tline2\tline3\tline4\ttext1\ttext2\t10"
 		if msg != etalon {
 			t.Errorf("Failed massage: '%s' != '%s'", msg, etalon)
 		}

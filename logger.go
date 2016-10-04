@@ -103,7 +103,7 @@ func (l *Logger) Log(err ...interface{}) {
 	if l.level < LEVEL_INFO {
 		return
 	}
-	msg := makeMessage("LOG", err).Bytes()
+	msg := makeMessage("LOG", err)
 	for _, pID := range l.logProviders {
 		p, bFound := l.providers[pID]
 		if bFound {
@@ -114,7 +114,7 @@ func (l *Logger) Log(err ...interface{}) {
 
 func (l *Logger) Error(err ...interface{}) {
 
-	msg := makeMessage("ERROR", err).Bytes()
+	msg := makeMessage("ERROR", err)
 	for _, pID := range l.errorProviders {
 		p, bFound := l.providers[pID]
 		if bFound {
@@ -127,7 +127,7 @@ func (l *Logger) Debug(err ...interface{}) {
 	if l.level < LEVEL_DEBUG {
 		return
 	}
-	msg := makeMessage("DEBUG", err).Bytes()
+	msg := makeMessage("DEBUG", err)
 	for _, pID := range l.debugProviders {
 		p, bFound := l.providers[pID]
 		if bFound {
@@ -137,7 +137,7 @@ func (l *Logger) Debug(err ...interface{}) {
 }
 
 func (l *Logger) Fatal(err ...interface{}) {
-	msg := makeMessage("FATAL", err).Bytes()
+	msg := makeMessage("FATAL", err)
 	for _, pID := range l.fatalProviders {
 		p, bFound := l.providers[pID]
 		if bFound {
@@ -154,7 +154,7 @@ var (
 	MESSAGE_SEPARATOR = []byte("\t")
 )
 
-func makeMessage(typeLog string, err []interface{}) *bytes.Buffer {
+func makeMessage(typeLog string, err []interface{}) []byte {
 
 	if len(HOST) == 0 {
 		HOST, _ = os.Hostname()
@@ -174,5 +174,5 @@ func makeMessage(typeLog string, err []interface{}) *bytes.Buffer {
 
 	logger.Output(3, MESSAGE_REPLACER.Replace(msg.String()))
 
-	return buf
+	return bytes.Replace(buf.Bytes(), []byte("\n"), []byte{}, -1)
 }
