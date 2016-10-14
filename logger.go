@@ -99,11 +99,19 @@ func (l *Logger) addProvider(providerType string, providersIDs ...string) {
 	}
 }
 
-func (l *Logger) Log(err ...interface{}) {
+func (l *Logger) Logf(format string, params ...interface{}) {
 	if l.level < LEVEL_INFO {
 		return
 	}
-	msg := makeMessage("LOG", err)
+
+	l.Log(fmt.Sprintf(format, params...))
+}
+
+func (l *Logger) Log(messageParts ...interface{}) {
+	if l.level < LEVEL_INFO {
+		return
+	}
+	msg := makeMessage("LOG", messageParts)
 	for _, pID := range l.logProviders {
 		p, bFound := l.providers[pID]
 		if bFound {
@@ -112,9 +120,13 @@ func (l *Logger) Log(err ...interface{}) {
 	}
 }
 
-func (l *Logger) Error(err ...interface{}) {
+func (l *Logger) Errorf(format string, params ...interface{}) {
+	l.Error(fmt.Sprintf(format, params...))
+}
 
-	msg := makeMessage("ERROR", err)
+func (l *Logger) Error(messageParts ...interface{}) {
+
+	msg := makeMessage("ERROR", messageParts)
 	for _, pID := range l.errorProviders {
 		p, bFound := l.providers[pID]
 		if bFound {
@@ -123,11 +135,20 @@ func (l *Logger) Error(err ...interface{}) {
 	}
 }
 
-func (l *Logger) Debug(err ...interface{}) {
+func (l *Logger) Debugf(format string, params ...interface{}) {
 	if l.level < LEVEL_DEBUG {
 		return
 	}
-	msg := makeMessage("DEBUG", err)
+
+	l.Debug(fmt.Sprintf(format, params...))
+}
+
+func (l *Logger) Debug(messageParts ...interface{}) {
+	if l.level < LEVEL_DEBUG {
+		return
+	}
+
+	msg := makeMessage("DEBUG", messageParts)
 	for _, pID := range l.debugProviders {
 		p, bFound := l.providers[pID]
 		if bFound {
@@ -136,8 +157,12 @@ func (l *Logger) Debug(err ...interface{}) {
 	}
 }
 
-func (l *Logger) Fatal(err ...interface{}) {
-	msg := makeMessage("FATAL", err)
+func (l *Logger) Fatalf(format string, params ...interface{}) {
+	l.Fatal(fmt.Sprintf(format, params...))
+}
+
+func (l *Logger) Fatal(messageParts ...interface{}) {
+	msg := makeMessage("FATAL", messageParts)
 	for _, pID := range l.fatalProviders {
 		p, bFound := l.providers[pID]
 		if bFound {
@@ -151,7 +176,7 @@ func (l *Logger) Fatal(err ...interface{}) {
 var (
 	HOST              string
 	MESSAGE_REPLACER  = strings.NewReplacer("\r", "", "\n", "\t")
-	MESSAGE_SEPARATOR = []byte("\t")
+	MESSAGE_SEPARATOR = []byte(" ")
 )
 
 func makeMessage(typeLog string, err []interface{}) []byte {
