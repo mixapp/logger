@@ -51,5 +51,5 @@ func (p EmailProvider) Debug(msg []byte) {
 func (p EmailProvider) send(subject string, body []byte) {
 	message := mail.NewMessage(p.smtpClient, p.address, subject, string(body))
 	message.BodyContentType = "text/plain"
-	message.SendMail()
+	go message.SendMail()
 }
