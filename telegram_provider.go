@@ -34,19 +34,19 @@ func (p TelegramProvider) GetID() string {
 }
 
 func (p TelegramProvider) Log(msg []byte) {
-	p.send("Log message\n", msg)
+	p.send("Log message", msg)
 }
 
 func (p TelegramProvider) Error(msg []byte) {
-	p.send("Error message\n", msg)
+	p.send("Error message", msg)
 }
 
 func (p TelegramProvider) Fatal(msg []byte) {
-	p.send("Fatal message\n", msg)
+	p.send("Fatal message", msg)
 }
 
 func (p TelegramProvider) Debug(msg []byte) {
-	p.send("Debug message\n", msg)
+	p.send("Debug message", msg)
 }
 
 func (p TelegramProvider) send(subject string, body []byte) {
@@ -54,13 +54,22 @@ func (p TelegramProvider) send(subject string, body []byte) {
 }
 
 func tg_send(url string, chatIds []string, subject string, body []byte) {
-	for _, chatId := range chatIds {
-		msg := "{\"chat_id\":" + chatId + ",\"text\":" + "\"" + subject + string(body) + "\"" + "}"
-		var jsonStr = []byte(msg)
+	msg := map[string]interface{}{
+		"chat_id": "",
+		"text": subject + "\n" + string(body),
+	}
+	client := &http.Client{}
+	
+	for _, chatId := range chatIds {	
+		msg["chat_id"] = chatId
+		jsonStr, err := json.Marshal(msg)
+		if err != nil {
+			return;
+		}
+		
 		req, _ := http.NewRequest("POST", url, bytes.NewBuffer(jsonStr))
 		req.Header.Set("Content-Type", "application/json")
 
-		client := &http.Client{}
 		resp, _ := client.Do(req)
 		defer resp.Body.Close()
 	}
