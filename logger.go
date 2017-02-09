@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 	"time"
+	"path"
 )
 
 const (
@@ -186,7 +187,7 @@ func makeMessage(typeLog string, err []interface{}) []byte {
 	}
 
 	buf := bytes.NewBuffer(nil)
-	prefix := fmt.Sprintf("%s: %s %s ", typeLog, time.Now().Format(time.RFC3339), HOST)
+	prefix := fmt.Sprintf("%s: %s %s %s ", typeLog, time.Now().Format(time.RFC3339), path.Base(os.Args[0]), HOST)
 	logger := log.New(buf, prefix, log.Lshortfile)
 
 	msg := bytes.NewBuffer(nil)
