@@ -2,9 +2,9 @@ package logger
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"net/http"
-	"encoding/json"
 )
 
 const PROVIDER_TELEGRAM = "telegram"
@@ -57,21 +57,25 @@ func (p TelegramProvider) send(subject string, body []byte) {
 func tg_send(url string, chatIds []string, subject string, body []byte) {
 	msg := map[string]interface{}{
 		"chat_id": "",
-		"text": subject + "\n" + string(body),
+		"text":    subject + "\n" + string(body),
 	}
 	client := &http.Client{}
-	
-	for _, chatId := range chatIds {	
+
+	for _, chatId := range chatIds {
 		msg["chat_id"] = chatId
 		jsonStr, err := json.Marshal(msg)
 		if err != nil {
-			return;
+			return
 		}
-		
+
 		req, _ := http.NewRequest("POST", url, bytes.NewBuffer(jsonStr))
 		req.Header.Set("Content-Type", "application/json")
 
-		resp, _ := client.Do(req)
+		resp, err := client.Do(req)
+		if err != nil {
+			return
+		}
+
 		defer resp.Body.Close()
 	}
 }
