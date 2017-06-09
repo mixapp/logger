@@ -50,13 +50,8 @@ func (l *Logger) SetLevel(val int) {
 	l.mu.Unlock()
 }
 
-func (l *Logger) RegisterProvider(p interface{}) {
+func (l *Logger) RegisterProvider(p ProviderInterface) {
 	l.internalInit()
-
-	newProvider, ok := p.(ProviderInterface)
-	if !ok {
-		l.Fatalf("Wrong provider type: %T", p)
-	}
 
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -68,14 +63,14 @@ func (l *Logger) RegisterProvider(p interface{}) {
 
 	var exist bool
 	for _, val := range list {
-		if val.GetID() == newProvider.GetID() {
+		if val.GetID() == p.GetID() {
 			exist = true
 			break
 		}
 	}
 
 	if !exist {
-		l.providers[_LEVEL_UNKNOWN] = append(list, newProvider)
+		l.providers[_LEVEL_UNKNOWN] = append(list, p)
 	}
 }
 
