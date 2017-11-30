@@ -10,17 +10,19 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+
+	"time"
 )
 
 const PROVIDER_TELEGRAM = "telegram"
 
 type TelegramProvider struct {
-	ProviderInterface
-
+	buf        *bytes.Buffer
 	req        *http.Request
 	httpClient *http.Client
 	chatIds    []string
 	mu         sync.Mutex
+	once       sync.Once
 }
 
 func NewTelegramProvider(token string, chatIds []string) (*TelegramProvider, error) {
@@ -46,9 +48,8 @@ func NewTelegramProvider(token string, chatIds []string) (*TelegramProvider, err
 	req.Header.Set("Content-Type", "application/json")
 
 	provider := &TelegramProvider{
-		req:        req,
-		httpClient: new(http.Client),
-		chatIds:    chatIds,
+		req:     req,
+		chatIds: chatIds,
 	}
 
 	return provider, nil
@@ -58,9 +59,38 @@ func (p *TelegramProvider) GetID() string {
 	return PROVIDER_TELEGRAM
 }
 
+var (
+	_MESSAGE_DELEMER = []byte("\n\n------------------\n")
+	_TIME_DELEMER    = []byte(":\n")
+)
+
 func (p *TelegramProvider) Write(data []byte) (n int, err error) {
+	p.internalInit()
 
 	if len(data) == 0 {
+		return 0, nil
+	}
+
+	p.mu.Lock()
+	if p.buf.Len() > 0 {
+		p.buf.Write(_MESSAGE_DELEMER)
+	}
+	p.buf.WriteString(time.Now().Format(time.RFC3339Nano))
+	p.buf.Write(_TIME_DELEMER)
+	p.buf.Write(data)
+	p.mu.Unlock()
+
+	return len(data), nil
+}
+
+func (p *TelegramProvider) send() (n int, err error) {
+
+	p.mu.Lock()
+	defer func() {
+		p.mu.Unlock()
+	}()
+
+	if p.buf.Len() == 0 {
 		return 0, nil
 	}
 
@@ -80,30 +110,22 @@ func (p *TelegramProvider) Write(data []byte) (n int, err error) {
 		Result      interface{} `json:"result,omitempty"`
 	}
 
-	jd, err := json.Marshal(string(data))
-	if err != nil {
-		return 0, err
-	}
-
-	buf := bytes.NewBuffer(make([]byte, 0, len(jd)+100))
-
-	p.mu.Lock()
-	defer p.mu.Unlock()
+	text := p.buf.String()
 
 	for _, chatId := range p.chatIds {
-		buf.Reset()
-		buf.WriteByte('{')
-		buf.WriteString(`"chat_id":`)
-		buf.WriteString(chatId)
-		buf.WriteByte(',')
-		buf.WriteString(`"text":`)
-		buf.Write(jd)
-		buf.WriteByte('}')
+		jd, err := json.Marshal(map[string]string{
+			"chat_id": chatId,
+			"text":    text,
+		})
 
-		body := bytes.NewReader(buf.Bytes())
+		if err != nil {
+			return 0, err
+		}
+
+		body := bytes.NewReader(jd)
 
 		p.req.Body = ioutil.NopCloser(body)
-		p.req.ContentLength = int64(buf.Len())
+		p.req.ContentLength = int64(len(jd))
 		p.req.GetBody = func() (io.ReadCloser, error) {
 			return ioutil.NopCloser(body), nil
 		}
@@ -135,5 +157,23 @@ func (p *TelegramProvider) Write(data []byte) (n int, err error) {
 		}
 	}
 
-	return len(data), nil
+	p.buf.Reset()
+	return p.buf.Len(), nil
+}
+
+func (p *TelegramProvider) flush() {
+	go func() {
+		for {
+			time.Sleep(time.Second)
+			p.send()
+		}
+	}()
+}
+
+func (p *TelegramProvider) internalInit() {
+	p.once.Do(func() {
+		p.buf = new(bytes.Buffer)
+		p.httpClient = new(http.Client)
+		p.flush()
+	})
 }
