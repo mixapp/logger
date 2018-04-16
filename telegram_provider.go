@@ -2,29 +2,69 @@ package logger
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"log"
+	"net"
 	"net/http"
+	"net/url"
+	"strings"
+	"time"
+
+	"golang.org/x/net/proxy"
 )
 
 const PROVIDER_TELEGRAM = "telegram"
 
 type TelegramProvider struct {
-	url     string
-	chatIds []string
+	url       string
+	chatIds   []string
+	httplient *http.Client
+	debugMode bool
 }
 
-func NewTelegramProvider(url string, chatIds []string) (*TelegramProvider, error) {
+func NewTelegramProvider(conn string, chatIds []string) (*TelegramProvider, error) {
 
-	if len(url) == 0 {
-		return nil, errors.New("Empty telegram url.")
-	} else if chatIds == nil {
-		return nil, errors.New("Empty telegram chat ids.")
+	if len(conn) == 0 {
+		return nil, errors.New("Empty telegram connection string")
+	} else if len(chatIds) == 0 {
+		return nil, errors.New("Empty telegram chat ids")
+	}
+
+	var (
+		botUrl    string
+		httplient = &http.Client{
+			Timeout: time.Second * 10,
+		}
+	)
+
+	const DELIMETER = `|`
+
+	delimeterIndex := strings.Index(conn, DELIMETER)
+	if delimeterIndex == -1 {
+		botUrl = conn
+
+	} else {
+		parts := strings.Split(conn, DELIMETER)
+		botToken := parts[0]
+		proxyUrl := parts[1]
+
+		botUrl = fmt.Sprintf("https://api.telegram.org/bot%s/sendMessage", botToken)
+
+		transport, err := httpTransport(proxyUrl)
+		if err != nil {
+			return nil, err
+		}
+
+		httplient.Transport = transport
 	}
 
 	provider := &TelegramProvider{
-		url:     url,
-		chatIds: chatIds,
+		url:       botUrl,
+		chatIds:   chatIds,
+		httplient: httplient,
 	}
 
 	return provider, nil
@@ -34,48 +74,126 @@ func (p TelegramProvider) GetID() string {
 	return PROVIDER_TELEGRAM
 }
 
-func (p TelegramProvider) Log(msg []byte) {
-	p.send("Log message", msg)
+func (p TelegramProvider) Log(msg []byte) error {
+	return p.send("INFO:", msg)
 }
 
-func (p TelegramProvider) Error(msg []byte) {
-	p.send("Error message", msg)
+func (p TelegramProvider) Error(msg []byte) error {
+	return p.send("ERROR:", msg)
 }
 
-func (p TelegramProvider) Fatal(msg []byte) {
-	p.send("Fatal message", msg)
+func (p TelegramProvider) Fatal(msg []byte) error {
+	return p.send("FATAL:", msg)
 }
 
-func (p TelegramProvider) Debug(msg []byte) {
-	p.send("Debug message", msg)
+func (p TelegramProvider) Debug(msg []byte) error {
+	return p.send("DEBUG:", msg)
 }
 
-func (p TelegramProvider) send(subject string, body []byte) {
-	go tg_send(p.url, p.chatIds, subject, body)
-}
+func (p *TelegramProvider) send(subject string, body []byte) error {
 
-func tg_send(url string, chatIds []string, subject string, body []byte) {
-	msg := map[string]interface{}{
-		"chat_id": "",
+	buf := bytes.NewBuffer(nil)
+	err := json.NewEncoder(buf).Encode(map[string]interface{}{
+		"chat_id": "unknown",
 		"text":    subject + "\n" + string(body),
+	})
+	if err != nil {
+		log.Println(err)
+		return err
 	}
-	client := &http.Client{}
 
-	for _, chatId := range chatIds {
-		msg["chat_id"] = chatId
-		jsonStr, err := json.Marshal(msg)
+	chatIdTemplate := []byte(`"chat_id":"unknown"`)
+
+	for _, chatId := range p.chatIds {
+		js := bytes.Replace(buf.Bytes(), chatIdTemplate, []byte(`"chat_id":"`+chatId+`"`), 1)
+
+		req, err := http.NewRequest(http.MethodPost, p.url, bytes.NewBuffer(js))
 		if err != nil {
-			return
+			log.Println(err)
+			return err
 		}
 
-		req, _ := http.NewRequest("POST", url, bytes.NewBuffer(jsonStr))
 		req.Header.Set("Content-Type", "application/json")
 
-		resp, err := client.Do(req)
+		resp, err := p.httplient.Do(req)
 		if err != nil {
-			return
+			log.Println(err)
+			return err
 		}
 
-		defer resp.Body.Close()
+		if p.debugMode {
+			type Answer struct {
+				Ok bool `json:"ok"`
+			}
+
+			answer := &Answer{}
+			err := json.NewDecoder(resp.Body).Decode(answer)
+			if err != nil {
+				return err
+			}
+
+			if !answer.Ok {
+				return errors.New("Invalid response data")
+			}
+		} else {
+			resp.Body.Close()
+		}
 	}
+
+	return nil
+}
+
+func httpTransport(uri string) (*http.Transport, error) {
+
+	proxyUrl, err := url.Parse(uri)
+	if err != nil {
+		return nil, err
+	}
+
+	var transport *http.Transport
+
+	switch {
+	case strings.HasPrefix(proxyUrl.Scheme, "http"):
+
+		tlsConfig := &tls.Config{
+			InsecureSkipVerify: true,
+		}
+
+		transport = &http.Transport{
+			Proxy: http.ProxyURL(proxyUrl),
+			Dial: (&net.Dialer{
+				Timeout:   30 * time.Second,
+				KeepAlive: 30 * time.Second,
+			}).Dial,
+			TLSClientConfig:       tlsConfig,
+			TLSHandshakeTimeout:   10 * time.Second,
+			ExpectContinueTimeout: 2 * time.Second,
+		}
+
+	case proxyUrl.Scheme == "socks5":
+
+		var auth *proxy.Auth
+		if proxyUrl.User != nil {
+			pass, _ := proxyUrl.User.Password()
+			auth = &proxy.Auth{
+				User:     proxyUrl.User.Username(),
+				Password: pass,
+			}
+		}
+
+		dialSocksProxy, err := proxy.SOCKS5("tcp", proxyUrl.Host, auth, proxy.Direct)
+		if err != nil {
+			return nil, err
+		}
+
+		transport = &http.Transport{
+			Dial: dialSocksProxy.Dial,
+		}
+	}
+
+	if transport == nil {
+		return nil, errors.New("Invalid proxy schema")
+	}
+
+	return transport, nil
 }
