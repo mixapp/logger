@@ -17,6 +17,13 @@ type BufProvider struct {
 func (b *BufProvider) GetID() string                     { return "BUF" }
 func (b *BufProvider) Write(p []byte) (n int, err error) { return b.Buf.Write(p) }
 
+func TestRegisterProvider(t *testing.T) {
+	l := NewLogger()
+	l.RegisterProvider(&ConsoleProvider{})
+	l.RegisterProvider(&EmailProvider{})
+	l.RegisterProvider(&TelegramProvider{})
+}
+
 func TestAddProvider(t *testing.T) {
 	cp := new(ConsoleProvider)
 

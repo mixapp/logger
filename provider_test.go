@@ -2,7 +2,6 @@ package logger
 
 import (
 	"bytes"
-	"fmt"
 	"testing"
 	"time"
 
@@ -28,36 +27,6 @@ func TestRemoveNewLinesInText(t *testing.T) {
 		}
 	}
 
-}
-
-func TestTelegram(t *testing.T) {
-
-	const (
-		BOT_TOKEN = "???"
-		USER_ID   = "???"
-	)
-
-	for _, token := range []string{
-		BOT_TOKEN,
-		fmt.Sprintf("https://api.telegram.org/bot%s/sendMessage", BOT_TOKEN),
-	} {
-		prv, err := NewTelegramProvider(token, []string{USER_ID})
-		if err != nil {
-			t.Error(err)
-		}
-
-		for _, txt := range []string{
-			"",
-			"Telegram provider test:" + time.Now().Format(time.RFC3339Nano),
-		} {
-			n, err := prv.Write([]byte(txt))
-			if err != nil {
-				t.Error(err)
-			} else if n != len([]byte(txt)) {
-				t.Error("Fail")
-			}
-		}
-	}
 }
 
 func TestEmail(t *testing.T) {
