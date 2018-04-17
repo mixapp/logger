@@ -7,6 +7,13 @@ import (
 	"testing"
 )
 
+func TestRegisterProvider(t *testing.T) {
+	l := NewLogger()
+	l.RegisterProvider(&ConsoleProvider{})
+	l.RegisterProvider(&EmailProvider{})
+	l.RegisterProvider(&TelegramProvider{})
+}
+
 func TestAddProvider(t *testing.T) {
 
 	providerInfo := Provider{Level: LEVEL_INFO}
