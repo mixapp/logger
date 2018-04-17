@@ -121,6 +121,8 @@ func (p *TelegramProvider) send(subject string, body []byte) error {
 
 		resp, err := p.httplient.Do(req)
 		if err != nil {
+			errMsg := strings.Replace(err.Error(), req.URL.String(), "https://api.telegram.org/...", -1)
+			err = errors.New(errMsg)
 			log.Println(err)
 			return err
 		}
