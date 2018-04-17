@@ -40,16 +40,17 @@ func NewTelegramProvider(conn string, chatIds []string) (*TelegramProvider, erro
 		}
 	)
 
-	const DELIMETER = `|`
+	connParts := strings.Split(conn, `|`)
 
-	delimeterIndex := strings.Index(conn, DELIMETER)
-	if delimeterIndex == -1 {
-		botUrl = conn
+	switch len(connParts) {
+	case 1:
+		// example: 'https://api.telegram.org/bot<token>/sendMessage'
+		botUrl = connParts[0]
 
-	} else {
-		parts := strings.Split(conn, DELIMETER)
-		botToken := parts[0]
-		proxyUrl := parts[1]
+	case 2:
+		// example: '<token>|<schema>://user:password@ip:port'
+		botToken := connParts[0]
+		proxyUrl := connParts[1]
 
 		botUrl = fmt.Sprintf("https://api.telegram.org/bot%s/sendMessage", botToken)
 
@@ -59,6 +60,9 @@ func NewTelegramProvider(conn string, chatIds []string) (*TelegramProvider, erro
 		}
 
 		httplient.Transport = transport
+
+	default:
+		return nil, errors.New("Invalid connection string format")
 	}
 
 	provider := &TelegramProvider{
@@ -74,20 +78,20 @@ func (p TelegramProvider) GetID() string {
 	return PROVIDER_TELEGRAM
 }
 
-func (p TelegramProvider) Log(msg []byte) error {
-	return p.send("INFO:", msg)
+func (p TelegramProvider) Log(msg []byte) {
+	p.send("INFO:", msg)
 }
 
-func (p TelegramProvider) Error(msg []byte) error {
-	return p.send("ERROR:", msg)
+func (p TelegramProvider) Error(msg []byte) {
+	p.send("ERROR:", msg)
 }
 
-func (p TelegramProvider) Fatal(msg []byte) error {
-	return p.send("FATAL:", msg)
+func (p TelegramProvider) Fatal(msg []byte) {
+	p.send("FATAL:", msg)
 }
 
-func (p TelegramProvider) Debug(msg []byte) error {
-	return p.send("DEBUG:", msg)
+func (p TelegramProvider) Debug(msg []byte) {
+	p.send("DEBUG:", msg)
 }
 
 func (p *TelegramProvider) send(subject string, body []byte) error {

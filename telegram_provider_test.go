@@ -67,12 +67,7 @@ func TestTelegramSendMessageHttpProxy(t *testing.T) {
 
 	p.debugMode = true
 
-	message := []byte("test")
-
-	require.NoError(t, p.Debug(message))
-	require.NoError(t, p.Error(message))
-	require.NoError(t, p.Log(message))
-	require.NoError(t, p.Fatal(message))
+	require.NoError(t, p.send("subject", []byte("test http proxy")))
 }
 
 func TestTelegramSendMessageSocks5(t *testing.T) {
@@ -86,12 +81,7 @@ func TestTelegramSendMessageSocks5(t *testing.T) {
 
 	p.debugMode = true
 
-	message := []byte("test")
-
-	require.NoError(t, p.Debug(message))
-	require.NoError(t, p.Error(message))
-	require.NoError(t, p.Log(message))
-	require.NoError(t, p.Fatal(message))
+	require.NoError(t, p.send("subject", []byte("test socks5 proxy")))
 }
 
 func getBotId() string {
@@ -99,7 +89,7 @@ func getBotId() string {
 }
 
 func getProxyUrl() string {
-	return os.Getenv("PROXY_SETTINGS") // example: '<user>:<port>@<ip>:<port>'
+	return os.Getenv("TELEGRAM_PROXY_SETTINGS") // example: '<user>:<port>@<ip>'
 }
 
 func getChatId() string {
