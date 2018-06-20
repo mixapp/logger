@@ -2,7 +2,7 @@ package logger
 
 import (
 	"errors"
-	"github.com/IntelliQru/mail"
+	"github.com/mixapp/mail"
 )
 
 const PROVIDER_EMAIL = "email"
